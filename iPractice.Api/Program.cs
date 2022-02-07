@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using iPractice.DataAccess;
 using Microsoft.AspNetCore.Hosting;
@@ -23,8 +24,18 @@ namespace iPractice.Api
             using (var scope = webHost.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                await context.Database.MigrateAsync();
-
+    
+                try
+                { 
+                    await context.Database.EnsureDeletedAsync();
+                    await context.Database.MigrateAsync();
+                    await context.Database.EnsureCreatedAsync();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                    throw;
+                }
                 var seedData = new SeedData(context);
                 seedData.Seed();
 

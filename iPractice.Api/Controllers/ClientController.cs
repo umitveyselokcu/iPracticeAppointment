@@ -1,24 +1,27 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Net;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
-using iPractice.Api.Models;
+using iPractice.Abstraction.DTO;
+using iPractice.ApiBase.ApiBase;
+using iPractice.ApiBase.Response;
+using iPractice.Application.Commands.CreateAppointment;
+using iPractice.Application.CQRS;
+using iPractice.Application.Queries.GetAvailableTimeSlots;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 
 namespace iPractice.Api.Controllers
 {
-    [ApiController]
-    [Route("[controller]")]
-    public class ClientController : ControllerBase
+    public class ClientController : ApiControllerBase
     {
-        private readonly ILogger<ClientController> _logger;
+        private readonly ICommandSender _commandSender;
+        private readonly IQueryProcessor _queryProcessor;
         
-        public ClientController(ILogger<ClientController> logger)
+        public ClientController(ICommandSender commandSender, IQueryProcessor queryProcessor)
         {
-            _logger = logger;
+            _commandSender = commandSender;
+            _queryProcessor = queryProcessor;
         }
-        
+
         /// <summary>
         /// The client can see when his psychologists are available.
         /// Get available slots from his two psychologists.
@@ -26,24 +29,23 @@ namespace iPractice.Api.Controllers
         /// <param name="clientId">The client ID</param>
         /// <returns>All time slots for the selected client</returns>
         [HttpGet("{clientId}/timeslots")]
-        [ProducesResponseType(typeof(IEnumerable<TimeSlot>), (int)HttpStatusCode.OK)]
-        public async Task<ActionResult<IEnumerable<TimeSlot>>> GetAvailableTimeSlots(long clientId)
+        public async Task<Response<List<Availability>>> GetAvailableTimeSlots([FromRoute]long clientId)
         {
-            throw new NotImplementedException();
+            var data = await _queryProcessor.ProcessAsync(new GetAvailableTimeSlotsQuery(clientId));
+            return ProduceResponse(data);
         }
 
         /// <summary>
         /// Create an appointment for a given availability slot
         /// </summary>
         /// <param name="clientId">The client ID</param>
-        /// <param name="timeSlot">Identifies the client and availability slot</param>
+        /// <param name="appointmentSlotId"></param>
         /// <returns>Ok if appointment was made</returns>
         [HttpPost("{clientId}/appointment")]
-        [ProducesResponseType(typeof(bool), (int)HttpStatusCode.OK)]
-        [ProducesResponseType((int)HttpStatusCode.BadRequest)]
-        public async Task<ActionResult> CreateAppointment(long clientId, [FromBody] TimeSlot timeSlot)
+        public async Task<Response<Unit>> CreateAppointment([FromRoute]long clientId, [FromBody]long appointmentSlotId)
         {
-            throw new NotImplementedException();
+            var data = await _commandSender.SendAsync(new CreateAppointmentCommand(clientId, appointmentSlotId));
+            return ProduceResponse(data);
         }
     }
 }

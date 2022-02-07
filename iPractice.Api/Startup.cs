@@ -1,4 +1,8 @@
+using iPractice.ApiBase.HeathCheck;
+using iPractice.ApiBase.Middlewares;
+using iPractice.Application;
 using iPractice.DataAccess;
+using iPractice.DataAccess.UnitOfWork;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +25,9 @@ namespace iPractice.Api
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddControllers().AddNewtonsoftJson(options =>
+                options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore
+            );
             services.AddSwaggerGen(swagger =>
             {
                 swagger.SwaggerDoc("v1", new OpenApiInfo
@@ -33,6 +40,12 @@ namespace iPractice.Api
             });
             
             services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite(Configuration.GetConnectionString("Sqlite")));
+            
+            services.AddHealthChecks().AddDbContextCheck<ApplicationDbContext>();
+            
+            services.AddCqrs();
+            
+            services.AddSingleton(typeof(IUnitOfWork<>), typeof(UnitOfWork<>));
 
             services.AddControllers();
         }
@@ -46,11 +59,15 @@ namespace iPractice.Api
                 app.UseSwagger();
                 app.UseSwaggerUI(c => { c.SwaggerEndpoint("/swagger/v1/swagger.json", "OpenUp v1"); });
             }
-
+            
+            app.UseMiddleware<ExceptionHandlingMiddleware>();
+            
             app.UseRouting();
 
             app.UseAuthorization();
 
+            app.ConfigureHealthCheck();
+            
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();

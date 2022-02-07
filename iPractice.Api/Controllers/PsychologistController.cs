@@ -1,55 +1,65 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Net;
 using System.Threading.Tasks;
-using iPractice.Api.Models;
+using iPractice.ApiBase.ApiBase;
+using iPractice.ApiBase.Response;
+using iPractice.Application.Commands.CreateAvailability;
+using iPractice.Application.Commands.UpdateAvailability;
+using iPractice.Application.CQRS;
+using iPractice.Application.Queries.GetPsychologists;
+using iPractice.DataAccess.Models;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 
 namespace iPractice.Api.Controllers
 {
-    [ApiController]
-    [Route("[controller]")]
-    public class PsychologistController : ControllerBase
+    public class PsychologistController : ApiControllerBase
     {
-        private readonly ILogger<PsychologistController> _logger;
-
-        public PsychologistController(ILogger<PsychologistController> logger)
+        private readonly ICommandSender _commandSender;
+        private readonly IQueryProcessor _queryProcessor;
+        
+        public PsychologistController(ICommandSender commandSender, IQueryProcessor queryProcessor)
         {
-            _logger = logger;
+            _commandSender = commandSender;
+            _queryProcessor = queryProcessor;
         }
 
         [HttpGet]
-        public string Get()
+        public async Task<Response<List<Psychologist>>> Get()
         {
-            return "Success!";
+            var data = await _queryProcessor.ProcessAsync(new GetPsychologistsQuery()).ConfigureAwait(false);
+            return ProduceResponse(data);
         }
 
         /// <summary>
         /// Add a block of time during which the psychologist is available during normal business hours
         /// </summary>
         /// <param name="psychologistId"></param>
-        /// <param name="availability">Availability</param>
+        /// <param name="fromDate"></param>
+        /// <param name="toDate"></param>
         /// <returns>Ok if the availability was created</returns>
         [HttpPost("{psychologistId}/availability")]
-        [ProducesResponseType(typeof(bool), (int)HttpStatusCode.OK)]
-        [ProducesResponseType((int)HttpStatusCode.BadRequest)]
-        public async Task<ActionResult> CreateAvailability([FromRoute] long psychologistId, [FromBody] Availability availability)
+        public async Task<Response<Unit>> CreateAvailability([FromRoute] long psychologistId, [FromBody] CreateAvailabilityCommand command)
         {
-            throw new NotImplementedException();
+            command.PsychologistId = psychologistId;
+            await _commandSender.SendAsync(command)
+                .ConfigureAwait(false);
+            return ProduceResponse(Unit.Value);
         }
 
         /// <summary>
         /// Update availability of a psychologist
         /// </summary>
         /// <param name="psychologistId">The psychologist's ID</param>
-        /// <param name="availabilityId">The ID of the availability block</param>
+        /// <param name="availabilitySlotId"></param>
+        /// <param name="newDate"></param>
         /// <returns>List of availability slots</returns>
-        [HttpPut("{psychologistId}/availability/{availabilityId}")]
-        [ProducesResponseType(typeof(Availability), (int)HttpStatusCode.OK)]
-        public async Task<ActionResult<Availability>> UpdateAvailability([FromRoute] long psychologistId, [FromRoute] long availabilityId, [FromBody] Availability availability)
+        [HttpPut("{psychologistId}/availability/{availabilitySlotId}")]
+        public async Task<Response<Unit>> UpdateAvailability([FromRoute] long psychologistId, [FromRoute] long availabilitySlotId, [FromBody] DateTime newDate)
         {
-            throw new NotImplementedException();
+            await _commandSender.SendAsync(new UpdateAvailabilityCommand(availabilitySlotId, psychologistId, newDate))
+                .ConfigureAwait(false);
+            return ProduceResponse(Unit.Value);
         }
     }
 }
