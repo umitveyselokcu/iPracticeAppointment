@@ -9,6 +9,7 @@ namespace iPractice.DataAccess
     {
         private const int NoClients = 50;
         private const int NoPsychologists = 20;
+        private const int NoAppointments = 200;
         
         private readonly ApplicationDbContext _context;
         
@@ -21,10 +22,12 @@ namespace iPractice.DataAccess
         {
             var psychologists = CreatePsychologists();
             _context.Psychologists.AddRange(psychologists);
-            
+            _context.SaveChanges();
             var clients = CreateClients(psychologists);
             _context.Clients.AddRange(clients);
-            
+            _context.SaveChanges();
+            var appointmentSlots = CreateAppointmentSlots(clients, psychologists);
+            _context.AppointmentSlots.AddRange(appointmentSlots);
             _context.SaveChanges();
         }
 
@@ -47,6 +50,26 @@ namespace iPractice.DataAccess
             }
 
             return clients;
+        }
+        
+        private static List<AppointmentSlot> CreateAppointmentSlots(List<Client> clients, List<Psychologist> psychologists)
+        {
+            var random = new Random();
+            var toDay = DateTime.Now;
+            List<AppointmentSlot> appointments = new List<AppointmentSlot>();
+            
+            for (int i = 0; i < NoAppointments; i++)
+            {
+                appointments.Add(new AppointmentSlot()
+                {
+                    ClientId = random.Next(5) > 3 ? random.Next(1, NoClients-1) : (long?) null,
+                    Psychologist = psychologists.Skip(random.Next(1, NoPsychologists-1)).First(),
+                    TimeSlot = new DateTime(toDay.AddDays(i+1).Ticks)
+
+                });
+            }
+
+            return appointments;
         }
 
         private static List<Psychologist> CreatePsychologists()
